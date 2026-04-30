@@ -19,6 +19,8 @@ public class CameraFollow : MonoBehaviour
     {
         if (_carQuery.IsEmpty) return;
 
+        _carQuery.CompleteDependency();
+
         var localToWorld = _carQuery.GetSingleton<LocalToWorld>();
         float3 carPosistion = localToWorld.Position;
 
