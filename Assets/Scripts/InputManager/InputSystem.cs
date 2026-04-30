@@ -12,8 +12,8 @@ public partial class InputSystem : SystemBase
     protected override void OnUpdate()
     {
         // 1. Ensure the singleton exists
-        if (!SystemAPI.ManagedAPI.TryGetSingleton<InputManagedComponent>(out var managedInput)) return;
-
+        if (  !SystemAPI.ManagedAPI.TryGetSingleton<InputManagedComponent>(out var managedInput)) return;
+        Debug.Log("Input System: Found Managed Input Singleton");
         // 2. Initialize actions if needed (first run)
         if (turnAction == null)
         {

@@ -19,6 +19,7 @@ public class CarAuthoring : MonoBehaviour
         public override void Bake(CarAuthoring authoring)
         {
             Entity entity = GetEntity(TransformUsageFlags.Dynamic);
+            UnityEngine.Debug.Log("Baking CarAuthoring for entity: " + entity);
             AddComponent(entity, new CarData
             {
                 acceleration = authoring.acceleration,

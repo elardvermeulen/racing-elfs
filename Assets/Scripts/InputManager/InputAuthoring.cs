@@ -10,6 +10,7 @@ public class InputAuthoring : MonoBehaviour
     {
         public override void Bake(InputAuthoring authoring)
         {
+            Debug.Log("Bake the InputManager");
             var entity = GetEntity(TransformUsageFlags.None);
             // We use AddComponentObject to store the managed InputActionAsset
             AddComponentObject(entity, new InputManagedComponent { Actions = authoring.InputActions });

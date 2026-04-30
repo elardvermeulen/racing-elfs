@@ -29,36 +29,16 @@ public partial struct CarSystem : ISystem
         // Read transform for orientation/position info
         LocalTransform transform = state.EntityManager.GetComponentData<LocalTransform>(carEntity);
 
-        // Apply model offset to visual only if entity isn't physics-driven
-        //bool hasPhysics = SystemAPI.HasComponent<PhysicsVelocity>(carEntity) && SystemAPI.HasComponent<PhysicsMass>(carEntity);
-
-        //if (!hasPhysics)
-        //{
-        //    // No physics body: modify transform directly
-        //    transform.Position += carData.startModelOffset;
-
-        //    float yawDegrees = inputData.turnInput * carData.turnSpeed * SystemAPI.Time.DeltaTime;
-        //    quaternion yawRot = quaternion.Euler(0f, math.radians(yawDegrees), 0f);
-        //    transform.Rotation = math.mul(transform.Rotation, yawRot);
-
-        //    if (inputData.accelerateInput == 1)
-        //    {
-        //        float3 forward = math.rotate(transform.Rotation, new float3(0f, 0f, 1f));
-        //        float3 forwardXZ = math.normalize(new float3(forward.x, 0f, forward.z));
-        //        if (math.lengthsq(forwardXZ) > 0f)
-        //        {
-        //            transform.Position += forwardXZ * carData.acceleration * SystemAPI.Time.DeltaTime;
-        //        }
-        //    }
-
-        //    state.EntityManager.SetComponentData(carEntity, transform);
-        //    return;
-        //}
-
         // Entity has physics: do not write LocalTransform.Rotation (physics owns transform)
         // Apply yaw by setting angular velocity around Y axis only. This avoids roll/pitch.
         PhysicsVelocity velocity = state.EntityManager.GetComponentData<PhysicsVelocity>(carEntity);
         PhysicsMass mass = state.EntityManager.GetComponentData<PhysicsMass>(carEntity);
+
+        // Lock pitch (X) and roll (Z) at the physics body level so the contact
+        // solver cant apply rolling torques - this is order-independent unlike
+        // zeroing angular velocity after the fact.
+        mass.InverseInertia = new float3(0f, mass.InverseInertia.y, 0f);
+        state.EntityManager.SetComponentData(carEntity, mass);
 
         // Compute forward from read transform but project to XZ plane so acceleration doesn't add vertical velocity
         float3 forward = math.rotate(transform.Rotation, new float3(0f, 0f, 1f));
@@ -75,7 +55,7 @@ public partial struct CarSystem : ISystem
         // Apply forward acceleration as change in linear velocity on XZ only
         if (inputData.accelerateInput == 1)
         {
-            float3 dv = forwardXZ * carData.acceleration * SystemAPI.Time.DeltaTime * mass.InverseMass;
+            float3 dv = forwardXZ * carData.acceleration * SystemAPI.Time.DeltaTime;
             velocity.Linear = new float3(velocity.Linear.x + dv.x, velocity.Linear.y, velocity.Linear.z + dv.z);
         }
 
@@ -95,20 +75,6 @@ public partial struct CarSystem : ISystem
         velocity.Angular.z = 0f;
 
         state.EntityManager.SetComponentData(carEntity, velocity);
-
-        // Helper to extract yaw (radians) from quaternion
-        static float GetYaw(quaternion q)
-        {
-            float x = q.value.x;
-            float y = q.value.y;
-            float z = q.value.z;
-            float w = q.value.w;
-            float t3 = +2f * (w * z + x * y);
-            float t4 = +1f - 2f * (y * y + z * z);
-            return math.atan2(t3, t4);
-        }
-
-
     }
 
 }
