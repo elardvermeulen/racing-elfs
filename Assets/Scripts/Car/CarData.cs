@@ -17,5 +17,7 @@ public struct CarData : IComponentData
     public float maxSpeed;
     public float maxUpwardSpeed;
 
+    public float slopeAlignSpeed;
+
     public float curYRot;
 }

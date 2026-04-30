@@ -26,59 +26,75 @@ public partial struct CarSystem : ISystem
 
     void Movement(ref SystemState state)
     {
-        // Read transform for orientation/position info
+        var collisionWorld = SystemAPI.GetSingleton<PhysicsWorldSingleton>().CollisionWorld;
         LocalTransform transform = state.EntityManager.GetComponentData<LocalTransform>(carEntity);
-
-        // Entity has physics: do not write LocalTransform.Rotation (physics owns transform)
-        // Apply yaw by setting angular velocity around Y axis only. This avoids roll/pitch.
         PhysicsVelocity velocity = state.EntityManager.GetComponentData<PhysicsVelocity>(carEntity);
         PhysicsMass mass = state.EntityManager.GetComponentData<PhysicsMass>(carEntity);
 
-        // Lock pitch (X) and roll (Z) at the physics body level so the contact
-        // solver cant apply rolling torques - this is order-independent unlike
-        // zeroing angular velocity after the fact.
-        mass.InverseInertia = new float3(0f, mass.InverseInertia.y, 0f);
+        // Allow pitch, lock only roll
+        mass.InverseInertia = new float3(mass.InverseInertia.x, mass.InverseInertia.y, 0f);
         state.EntityManager.SetComponentData(carEntity, mass);
 
-        // Compute forward from read transform but project to XZ plane so acceleration doesn't add vertical velocity
-        float3 forward = math.rotate(transform.Rotation, new float3(0f, 0f, 1f));
-        float3 forwardXZ = new float3(forward.x, 0f, forward.z);
-        if (math.lengthsq(forwardXZ) > 1e-6f)
+        // Raycast down to detect ground and slow normal
+        bool onGround = false;
+        float3 groundNormal = new float3(0f, 1f, 0f);
+        var rayInput = new RaycastInput
         {
-            forwardXZ = math.normalize(forwardXZ);
+            Start = transform.Position + new float3(0f, 0.3f, 0f),
+            End = transform.Position - new float3(0f, 1.5f, 0f),
+            Filter = CollisionFilter.Default
+        };
+
+        if (collisionWorld.CastRay(rayInput, out Unity.Physics.RaycastHit hit))
+        {
+            onGround = true;
+            groundNormal = hit.SurfaceNormal;
+        }
+        
+        float3 carForward = math.rotate(transform.Rotation, new float3(0f, 0f, 1f));
+        float3 carRight = math.rotate(transform.Rotation, new float3(1f, 0f, 0f));
+        float3 carUp = math.rotate(transform.Rotation, new float3(0f, 1f, 0f));
+
+        // Acceleration along slow surface (or flat XZ when airborne)
+        float3 accelerationDirection;
+        if (onGround)
+        {
+            // project forward onto ground plane
+            accelerationDirection = carForward - math.dot(carForward, groundNormal) * groundNormal;
+            accelerationDirection = math.lengthsq(accelerationDirection) > 1e-6f ? math.normalize(accelerationDirection) : carForward;
         }
         else
         {
-            forwardXZ = new float3(0f, 0f, 1f);
+            float3 flat = new float3(carForward.x, 0f, carForward.z);
+            accelerationDirection = math.lengthsq(flat) > 1e-6f ? math.normalize(flat) : new float3(0f, 1f, 1f);
         }
 
-        // Apply forward acceleration as change in linear velocity on XZ only
         if (inputData.accelerateInput == 1)
-        {
-            float3 dv = forwardXZ * carData.acceleration * SystemAPI.Time.DeltaTime;
-            velocity.Linear = new float3(velocity.Linear.x + dv.x, velocity.Linear.y, velocity.Linear.z + dv.z);
-        }
+            velocity.Linear += accelerationDirection * carData.acceleration * SystemAPI.Time.DeltaTime;
 
-        // Set yaw angular velocity (rad/s) and zero out roll/pitch angular components to prevent tumbling
-        float yawDegPerSec = inputData.turnInput * carData.turnSpeed;
-        float yawRadPerSec = math.radians(yawDegPerSec);
-        velocity.Angular = new float3(0f, yawRadPerSec, 0f);
-
-        // Optionally apply some angular damping to XZ (already zero) and to Y for stability
-        // Here we mildly damp existing Y angular velocity when there's no input
+        // Steering: yaw around the world
+        float yawRadPerSec = math.radians(inputData.turnInput * carData.turnSpeed);
         if (math.abs(inputData.turnInput) < 1e-4f)
+            yawRadPerSec = velocity.Angular.y * 0.9f;
+
+        // Pitch: rotate the car up toward slope normal (or upright when airborne)
+        float3 targetUp = onGround ? groundNormal : new float3(0f, 1f, 0f);
+        float pitchRate = math.dot(math.cross(carUp, targetUp), carRight) * carData.slopeAlignSpeed;
+
+        // Combine yaw (world Y) _ pitch (car right axis) - no roll
+        velocity.Angular = new float3(0f, yawRadPerSec, 0f) + carRight * pitchRate;
+
+        // Lateral damping using horizontal right so slopes don't affect it
+        float3 rightXZ = new float3(carRight.x, 0f, carRight.z);
+        if (math.lengthsq(rightXZ) > 1e-6f)
         {
-            velocity.Angular.y *= 0.9f; // simple damping
+            rightXZ = math.normalize(rightXZ);
+            float sidewaysSpeed = math.dot(velocity.Linear, rightXZ);
+            velocity.Linear -= rightXZ * sidewaysSpeed * carData.lateralDampning;
         }
-        // Prevent further pitch/roll by clearing X/Z angular velocity:
-        velocity.Angular.x = 0f;
-        velocity.Angular.z = 0f;
-        // Kill sideways velocity to simulate tire grip
-        float3 right = math.rotate(transform.Rotation, new float3(1f, 0f, 0f));
-        float sidewaysSpeed = math.dot(velocity.Linear, right);
-        velocity.Linear -= right * sidewaysSpeed * carData.lateralDampning;
-        // Extra downward force to keep the car planted
-        velocity.Linear.y -= 9.81f * (carData.gravityMultiplier -1f)  * SystemAPI.Time.DeltaTime;
+
+        // Extra gravity
+        velocity.Linear.y -= 9.81f * (carData.gravityMultiplier - 1f) * SystemAPI.Time.DeltaTime;
 
         // Cap horizontal speed
         float2 horizontalVelocity = new float2(velocity.Linear.x, velocity.Linear.z);
@@ -90,12 +106,11 @@ public partial struct CarSystem : ISystem
             velocity.Linear.z = clamped.y;
         }
 
-        // Clamp upward velocity to prevent bounce launching
-        if (velocity.Linear.y > carData.maxUpwardSpeed)
+        // Only clamp upward velocity when airborne - not on a slope
+        if (!onGround && velocity.Linear.y > carData.maxUpwardSpeed)
         {
             velocity.Linear.y = carData.maxUpwardSpeed;
         }
-
 
         state.EntityManager.SetComponentData(carEntity, velocity);
     }

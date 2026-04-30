@@ -17,6 +17,7 @@ public class CarAuthoring : MonoBehaviour
     public float gravityMultiplier = 2f;
     public float maxSpeed = 20f;
     public float maxUpwardSpeed = 2f;
+    public float slopeAlignSpeed = 3f;
 
     private class Baker : Baker<CarAuthoring>
     {
@@ -35,6 +36,7 @@ public class CarAuthoring : MonoBehaviour
                 gravityMultiplier = authoring.gravityMultiplier,
                 maxSpeed = authoring.maxSpeed,
                 maxUpwardSpeed = authoring.maxUpwardSpeed,
+                slopeAlignSpeed = authoring.slopeAlignSpeed,
             });
         }
     }
