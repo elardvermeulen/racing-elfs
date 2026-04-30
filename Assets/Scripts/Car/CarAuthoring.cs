@@ -14,6 +14,7 @@ public class CarAuthoring : MonoBehaviour
     public bool accelerateInput;
     public float turnInput;
     public float lateralDampning = 0.85f;
+    public float gravityMultiplier = 2f;
 
     private class Baker : Baker<CarAuthoring>
     {
@@ -29,6 +30,7 @@ public class CarAuthoring : MonoBehaviour
                 groundCheckRate = authoring.groundCheckRate,
                 lastGroundCheckTime = authoring.lastGroundCheckTime,
                 lateralDampning = authoring.lateralDampning,
+                gravityMultiplier = authoring.gravityMultiplier,
             });
         }
     }

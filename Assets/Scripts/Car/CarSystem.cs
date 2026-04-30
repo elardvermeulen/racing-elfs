@@ -77,6 +77,8 @@ public partial struct CarSystem : ISystem
         float3 right = math.rotate(transform.Rotation, new float3(1f, 0f, 0f));
         float sidewaysSpeed = math.dot(velocity.Linear, right);
         velocity.Linear -= right * sidewaysSpeed * carData.lateralDampning;
+        // Extra downward force to keep the car planted
+        velocity.Linear.y -= 9.81f * (carData.gravityMultiplier -1f)  * SystemAPI.Time.DeltaTime;
 
         state.EntityManager.SetComponentData(carEntity, velocity);
     }

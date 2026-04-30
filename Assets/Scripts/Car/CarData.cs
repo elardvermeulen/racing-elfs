@@ -9,6 +9,7 @@ public struct CarData : IComponentData
     public float turnSpeed;
     public float3 startModelOffset;
     public float lateralDampning;
+    public float gravityMultiplier;
 
     public float groundCheckRate;
     public float lastGroundCheckTime;
