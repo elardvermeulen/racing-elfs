@@ -14,5 +14,8 @@ public struct CarData : IComponentData
     public float groundCheckRate;
     public float lastGroundCheckTime;
 
+    public float maxSpeed;
+    public float maxUpwardSpeed;
+
     public float curYRot;
 }

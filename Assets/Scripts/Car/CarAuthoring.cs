@@ -15,6 +15,8 @@ public class CarAuthoring : MonoBehaviour
     public float turnInput;
     public float lateralDampning = 0.85f;
     public float gravityMultiplier = 2f;
+    public float maxSpeed = 20f;
+    public float maxUpwardSpeed = 2f;
 
     private class Baker : Baker<CarAuthoring>
     {
@@ -31,6 +33,8 @@ public class CarAuthoring : MonoBehaviour
                 lastGroundCheckTime = authoring.lastGroundCheckTime,
                 lateralDampning = authoring.lateralDampning,
                 gravityMultiplier = authoring.gravityMultiplier,
+                maxSpeed = authoring.maxSpeed,
+                maxUpwardSpeed = authoring.maxUpwardSpeed,
             });
         }
     }

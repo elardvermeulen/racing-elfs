@@ -80,6 +80,23 @@ public partial struct CarSystem : ISystem
         // Extra downward force to keep the car planted
         velocity.Linear.y -= 9.81f * (carData.gravityMultiplier -1f)  * SystemAPI.Time.DeltaTime;
 
+        // Cap horizontal speed
+        float2 horizontalVelocity = new float2(velocity.Linear.x, velocity.Linear.z);
+        float horizontalSpeed = math.length(horizontalVelocity);
+        if (horizontalSpeed > carData.maxSpeed)
+        {
+            float2 clamped = math.normalize(horizontalVelocity) * carData.maxSpeed;
+            velocity.Linear.x = clamped.x;
+            velocity.Linear.z = clamped.y;
+        }
+
+        // Clamp upward velocity to prevent bounce launching
+        if (velocity.Linear.y > carData.maxUpwardSpeed)
+        {
+            velocity.Linear.y = carData.maxUpwardSpeed;
+        }
+
+
         state.EntityManager.SetComponentData(carEntity, velocity);
     }
 
