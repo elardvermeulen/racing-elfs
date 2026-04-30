@@ -73,6 +73,10 @@ public partial struct CarSystem : ISystem
         // Prevent further pitch/roll by clearing X/Z angular velocity:
         velocity.Angular.x = 0f;
         velocity.Angular.z = 0f;
+        // Kill sideways velocity to simulate tire grip
+        float3 right = math.rotate(transform.Rotation, new float3(1f, 0f, 0f));
+        float sidewaysSpeed = math.dot(velocity.Linear, right);
+        velocity.Linear -= right * sidewaysSpeed * carData.lateralDampning;
 
         state.EntityManager.SetComponentData(carEntity, velocity);
     }

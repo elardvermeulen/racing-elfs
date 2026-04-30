@@ -13,6 +13,7 @@ public class CarAuthoring : MonoBehaviour
     public float curYRot;
     public bool accelerateInput;
     public float turnInput;
+    public float lateralDampning = 0.85f;
 
     private class Baker : Baker<CarAuthoring>
     {
@@ -27,6 +28,7 @@ public class CarAuthoring : MonoBehaviour
                 startModelOffset = authoring.startModelOffset,
                 groundCheckRate = authoring.groundCheckRate,
                 lastGroundCheckTime = authoring.lastGroundCheckTime,
+                lateralDampning = authoring.lateralDampning,
             });
         }
     }
