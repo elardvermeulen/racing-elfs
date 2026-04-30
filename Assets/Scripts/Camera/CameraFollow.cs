@@ -5,7 +5,7 @@ using UnityEngine;
 
 public class CameraFollow : MonoBehaviour
 {
-    private float3 _offset;
+    private float3 _localOffset;
     private bool _offsetInitialized;
     private EntityQuery _carQuery;
 
@@ -23,15 +23,16 @@ public class CameraFollow : MonoBehaviour
 
         var localToWorld = _carQuery.GetSingleton<LocalToWorld>();
         float3 carPosistion = localToWorld.Position;
+        quaternion carRotation = new quaternion(localToWorld.Value);
 
         if (!_offsetInitialized)
         {
-            // Store offset in car-local space so it rotates with the car
-            float4x4 worldToLocal = math.inverse(localToWorld.Value);
-            _offset = math.transform(worldToLocal, (float3)transform.position);
-
+            // Store the camera's starting offset in the car's local space (rotation only)
+            quaternion inverseRotation = math.inverse(carRotation);
+            _localOffset = math.rotate(inverseRotation, (float3)transform.position - carPosistion);
             _offsetInitialized = true;
         }
-        transform.position = carPosistion + _offset;
+        transform.position = carPosistion + math.rotate(carRotation, _localOffset);
+        transform.LookAt((Vector3)carPosistion);
     }
 }
