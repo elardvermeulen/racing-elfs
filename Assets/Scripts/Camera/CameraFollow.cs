@@ -18,21 +18,28 @@ public class CameraFollow : MonoBehaviour
     void LateUpdate()
     {
         if (_carQuery.IsEmpty) return;
-
         _carQuery.CompleteDependency();
 
         var localToWorld = _carQuery.GetSingleton<LocalToWorld>();
         float3 carPosistion = localToWorld.Position;
-        quaternion carRotation = new quaternion(localToWorld.Value);
+        
+        // Extract only horizontal facing direction (yaw), ignore pitch/roll
+        float3 horizontalForward = new float3(localToWorld.Forward.x, 0f, localToWorld.Forward.z);
+        if (math.lengthsq(horizontalForward) > 1e-6f)
+            horizontalForward = math.normalize(horizontalForward);
+        else
+            horizontalForward = new float3(0f, 0f, 1f);
+
+
+        quaternion yawOnly = quaternion.LookRotation(horizontalForward, new float3(0f, 1f, 0f));
 
         if (!_offsetInitialized)
         {
-            // Store the camera's starting offset in the car's local space (rotation only)
-            quaternion inverseRotation = math.inverse(carRotation);
-            _localOffset = math.rotate(inverseRotation, (float3)transform.position - carPosistion);
+            quaternion inverseYaw = math.inverse(yawOnly);
+            _localOffset = math.rotate(inverseYaw, (float3)transform.position - carPosistion);
             _offsetInitialized = true;
         }
-        transform.position = carPosistion + math.rotate(carRotation, _localOffset);
+        transform.position = carPosistion + math.rotate(yawOnly, _localOffset);
         transform.LookAt((Vector3)carPosistion);
     }
 }

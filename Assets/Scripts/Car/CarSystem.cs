@@ -71,24 +71,24 @@ public partial struct CarSystem : ISystem
 
         if (inputData.accelerateInput == 1)
             velocity.Linear += accelerationDirection * carData.acceleration * SystemAPI.Time.DeltaTime;
-
-        // Steering: yaw around the world
+          
+        // Steering: yaw directly from input, no feedback from velocity.Angular
         float yawRadPerSec = math.radians(inputData.turnInput * carData.turnSpeed);
-        if (math.abs(inputData.turnInput) < 1e-4f)
-            yawRadPerSec = velocity.Angular.y * 0.9f;
 
         // Pitch: rotate the car up toward slope normal (or upright when airborne)
-        float3 targetUp = onGround ? groundNormal : new float3(0f, 1f, 0f);
-        float pitchRate = math.dot(math.cross(carUp, targetUp), carRight) * carData.slopeAlignSpeed;
+        float3 targetUp = onGround ? groundNormal : new float3(0f, 1f, 0f);  
+        float targetPitchRate = math.dot(math.cross(carUp, targetUp), carRight) * carData.slopeAlignSpeed;
+        float currentPitchRate = math.dot(velocity.Angular, carRight);
+        float pitchRate = targetPitchRate - currentPitchRate * 0.5f;
 
-        // Combine yaw (world Y) _ pitch (car right axis) - no roll
+        // Combine: yaw around world Y + pitch around car right axis
         velocity.Angular = new float3(0f, yawRadPerSec, 0f) + carRight * pitchRate;
 
         // Lateral damping using horizontal right so slopes don't affect it
         float3 rightXZ = new float3(carRight.x, 0f, carRight.z);
         if (math.lengthsq(rightXZ) > 1e-6f)
         {
-            rightXZ = math.normalize(rightXZ);
+            rightXZ = math.normalize(rightXZ);  
             float sidewaysSpeed = math.dot(velocity.Linear, rightXZ);
             velocity.Linear -= rightXZ * sidewaysSpeed * carData.lateralDampning;
         }
